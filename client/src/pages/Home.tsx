@@ -41,6 +41,9 @@ export default function Home() {
     refetchInterval: 10000,
   });
 
+  const mcpUrl = typeof window !== "undefined"
+    ? `${window.location.origin}/mcp`
+    : "";
   const sseUrl = typeof window !== "undefined"
     ? `${window.location.origin}/sse`
     : "";
@@ -154,24 +157,43 @@ export default function Home() {
 
         <Card data-testid="card-endpoint">
           <CardHeader className="pb-3">
-            <CardTitle className="text-base">SSE Endpoint</CardTitle>
+            <CardTitle className="text-base">MCP Endpoint</CardTitle>
           </CardHeader>
-          <CardContent>
-            <div className="flex items-center gap-2">
-              <code className="flex-1 bg-muted px-3 py-2 rounded-md text-sm font-mono break-all" data-testid="text-sse-url">
-                {sseUrl}
-              </code>
-              <Button
-                size="icon"
-                variant="outline"
-                onClick={() => copyToClipboard(sseUrl)}
-                data-testid="button-copy-url"
-              >
-                <Copy className="w-4 h-4" />
-              </Button>
+          <CardContent className="space-y-4">
+            <div>
+              <p className="text-xs text-muted-foreground mb-1.5 font-medium">Streamable HTTP (recommended)</p>
+              <div className="flex items-center gap-2">
+                <code className="flex-1 bg-muted px-3 py-2 rounded-md text-sm font-mono break-all" data-testid="text-mcp-url">
+                  {mcpUrl}
+                </code>
+                <Button
+                  size="icon"
+                  variant="outline"
+                  onClick={() => copyToClipboard(mcpUrl)}
+                  data-testid="button-copy-mcp-url"
+                >
+                  <Copy className="w-4 h-4" />
+                </Button>
+              </div>
             </div>
-            <p className="text-xs text-muted-foreground mt-2">
-              Use this URL when configuring Claude.ai custom MCP connector.
+            <div>
+              <p className="text-xs text-muted-foreground mb-1.5">Legacy SSE transport</p>
+              <div className="flex items-center gap-2">
+                <code className="flex-1 bg-muted px-3 py-2 rounded-md text-sm font-mono break-all text-muted-foreground" data-testid="text-sse-url">
+                  {sseUrl}
+                </code>
+                <Button
+                  size="icon"
+                  variant="outline"
+                  onClick={() => copyToClipboard(sseUrl)}
+                  data-testid="button-copy-sse-url"
+                >
+                  <Copy className="w-4 h-4" />
+                </Button>
+              </div>
+            </div>
+            <p className="text-xs text-muted-foreground">
+              Use the Streamable HTTP URL when adding a custom connector in Claude.ai Settings.
             </p>
           </CardContent>
         </Card>
@@ -265,7 +287,7 @@ export default function Home() {
               "Create a GitHub Personal Access Token with 'repo' scope",
               "Set GITHUB_PERSONAL_ACCESS_TOKEN, GITHUB_OWNER, and GITHUB_REPO in environment",
               "Deploy this server on Replit (click Run)",
-              "Copy the SSE endpoint URL above",
+              "Copy the MCP endpoint URL above",
               "Go to claude.ai > Settings > Connectors > Add custom connector",
               "Paste the URL — Claude discovers all tools automatically",
             ].map((step, i) => (
