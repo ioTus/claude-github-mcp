@@ -1,4 +1,4 @@
-import type { Express, Request, Response } from "express";
+import type { Express, Request, Response, NextFunction } from "express";
 import { type Server as HttpServer } from "http";
 import { randomUUID } from "crypto";
 import { Server } from "@modelcontextprotocol/sdk/server/index.js";
@@ -101,6 +101,42 @@ function setCorsHeaders(res: Response, origin?: string): boolean {
   return true;
 }
 
+const MCP_AUTH_TOKEN = process.env.MCP_AUTH_TOKEN;
+const AUTH_ENABLED = !!MCP_AUTH_TOKEN;
+
+if (AUTH_ENABLED) {
+  console.log(`[${new Date().toISOString()}] [MCP] Bearer token authentication is ENABLED`);
+} else {
+  console.log(`[${new Date().toISOString()}] [MCP] WARNING: MCP_AUTH_TOKEN is not set — MCP endpoints are OPEN (no authentication)`);
+  console.log(`[${new Date().toISOString()}] [MCP] Set MCP_AUTH_TOKEN to require Bearer token auth on all MCP requests`);
+}
+
+function requireAuth(req: Request, res: Response): boolean {
+  if (!AUTH_ENABLED) return true;
+
+  const authHeader = req.headers.authorization;
+  if (!authHeader || !authHeader.startsWith("Bearer ")) {
+    res.status(401).json({
+      jsonrpc: "2.0",
+      error: { code: -32001, message: "Authentication required. Provide Authorization: Bearer <token> header." },
+      id: null,
+    });
+    return false;
+  }
+
+  const providedToken = authHeader.slice(7);
+  if (providedToken !== MCP_AUTH_TOKEN) {
+    res.status(403).json({
+      jsonrpc: "2.0",
+      error: { code: -32001, message: "Invalid authentication token." },
+      id: null,
+    });
+    return false;
+  }
+
+  return true;
+}
+
 const sseTransports: Record<string, SSEServerTransport> = {};
 const streamableTransports: Record<string, StreamableHTTPServerTransport> = {};
 
@@ -116,6 +152,7 @@ export async function registerRoutes(
       version: "1.0.0",
       owner: OWNER,
       repo: REPO,
+      authEnabled: AUTH_ENABLED,
       tools: allTools.map((t) => ({
         name: t.name,
         description: t.description,
@@ -132,6 +169,7 @@ export async function registerRoutes(
 
   app.post("/mcp", async (req: Request, res: Response) => {
     setCorsHeaders(res, req.headers.origin);
+    if (!requireAuth(req, res)) return;
 
     const sessionId = req.headers["mcp-session-id"] as string | undefined;
 
@@ -178,6 +216,7 @@ export async function registerRoutes(
 
   app.get("/mcp", async (req: Request, res: Response) => {
     setCorsHeaders(res, req.headers.origin);
+    if (!requireAuth(req, res)) return;
     const sessionId = req.headers["mcp-session-id"] as string | undefined;
 
     if (!sessionId || !streamableTransports[sessionId]) {
@@ -196,6 +235,7 @@ export async function registerRoutes(
 
   app.delete("/mcp", async (req: Request, res: Response) => {
     setCorsHeaders(res, req.headers.origin);
+    if (!requireAuth(req, res)) return;
     const sessionId = req.headers["mcp-session-id"] as string | undefined;
 
     if (!sessionId || !streamableTransports[sessionId]) {
@@ -225,6 +265,7 @@ export async function registerRoutes(
 
   app.get("/sse", async (req: Request, res: Response) => {
     setCorsHeaders(res, req.headers.origin);
+    if (!requireAuth(req, res)) return;
     console.log(`[${new Date().toISOString()}] [MCP] New SSE connection request`);
 
     const mcpServer = createMcpServer();
@@ -242,6 +283,7 @@ export async function registerRoutes(
 
   app.post("/messages", async (req: Request, res: Response) => {
     setCorsHeaders(res, req.headers.origin);
+    if (!requireAuth(req, res)) return;
     const sessionId = req.query.sessionId as string;
     const transport = sseTransports[sessionId];
 

@@ -12,6 +12,8 @@ import {
   Link2,
   Copy,
   ExternalLink,
+  ShieldCheck,
+  ShieldAlert,
 } from "lucide-react";
 import { SiGithub } from "react-icons/si";
 import { Button } from "@/components/ui/button";
@@ -29,6 +31,7 @@ interface StatusData {
   version: string;
   owner: string;
   repo: string;
+  authEnabled: boolean;
   tools: ToolInfo[];
   activeSessions: number;
 }
@@ -154,6 +157,34 @@ export default function Home() {
             </CardContent>
           </Card>
         </div>
+
+        <Card data-testid="card-auth">
+          <CardContent className="pt-5 pb-4">
+            <div className="flex items-center gap-3">
+              {data?.authEnabled ? (
+                <>
+                  <ShieldCheck className="w-5 h-5 text-green-600 dark:text-green-400 flex-shrink-0" />
+                  <div>
+                    <p className="font-medium text-sm" data-testid="text-auth-status">Authentication enabled</p>
+                    <p className="text-xs text-muted-foreground">
+                      MCP endpoints require a valid Bearer token. Set the same token in Claude.ai connector settings.
+                    </p>
+                  </div>
+                </>
+              ) : (
+                <>
+                  <ShieldAlert className="w-5 h-5 text-amber-600 dark:text-amber-400 flex-shrink-0" />
+                  <div>
+                    <p className="font-medium text-sm" data-testid="text-auth-status">No authentication</p>
+                    <p className="text-xs text-muted-foreground">
+                      MCP endpoints are open to anyone. Set MCP_AUTH_TOKEN in your environment to require Bearer token auth.
+                    </p>
+                  </div>
+                </>
+              )}
+            </div>
+          </CardContent>
+        </Card>
 
         <Card data-testid="card-endpoint">
           <CardHeader className="pb-3">
