@@ -189,5 +189,3 @@ The server includes a web dashboard at the root URL that shows:
 ## License
 
 MIT
-
-TEST
