@@ -1,8 +1,6 @@
 import { Octokit } from "@octokit/rest";
 
 const token = process.env.GITHUB_PERSONAL_ACCESS_TOKEN;
-const owner = process.env.GITHUB_OWNER;
-const repo = process.env.GITHUB_REPO;
 
 if (!token) {
   console.error("FATAL: GITHUB_PERSONAL_ACCESS_TOKEN is not set.");
@@ -10,19 +8,24 @@ if (!token) {
   process.exit(1);
 }
 
-if (!owner) {
-  console.error("FATAL: GITHUB_OWNER is not set. Please set this to your GitHub username or organization.");
-  process.exit(1);
-}
-
-if (!repo) {
-  console.error("FATAL: GITHUB_REPO is not set. Please set this to the target repository name.");
-  process.exit(1);
-}
-
 export const octokit = new Octokit({ auth: token });
-export const OWNER = owner;
-export const REPO = repo;
+
+export function validateOwnerRepo(args: { owner?: string; repo?: string }): { owner: string; repo: string } | { error: string } {
+  if (!args.owner || !args.repo) {
+    const missing = [];
+    if (!args.owner) missing.push("owner");
+    if (!args.repo) missing.push("repo");
+    return {
+      error: `Missing required parameters: ${missing.join(" and ")} must be provided on every tool call. Example: owner='yourUsername' repo='your-repo-name'`,
+    };
+  }
+  return { owner: args.owner, repo: args.repo };
+}
+
+export const ownerRepoParams = {
+  owner: { type: "string" as const, description: "GitHub username or organization that owns the repository" },
+  repo: { type: "string" as const, description: "Repository name" },
+};
 
 export function logToolCall(
   toolName: string,

@@ -285,29 +285,37 @@ Once logged, don't re-litigate.
 
 *Updated with each build.*
 
-### Live:
+### Live (V2):
+
+| Tool | Category | What it does |
+|------|----------|-------------|
+| `read_file` | File | Read a file from a repo |
+| `write_file` | File | Create or update a single file |
+| `push_multiple_files` | File | Create/update multiple files in one commit |
+| `list_files` | File | List directory contents |
+| `search_files` | Search | Search code across a repo (GitHub Code Search) |
+| `get_recent_commits` | Search | View recent commit history for a branch |
+| `move_file` | Advanced | Copy to new path + manual delete link |
+| `delete_file` | Advanced | Delete a file (Tier 4 permissions) |
+| `queue_write` | Batch | Queue a write for batch commit |
+| `flush_queue` | Batch | Commit all queued writes in one commit |
+| `create_issue` | Issues | Create a new GitHub Issue |
+| `update_issue` | Issues | Update an existing Issue |
+| `list_issues` | Issues | List Issues with optional filters |
+| `add_issue_comment` | Issues | Comment on an Issue |
+
+All tools require `owner` and `repo` parameters. Write tools prefix
+responses with `✅ Writing to: {owner}/{repo}`.
+
+### Planned (Phase 2 stubs — registered but not yet implemented):
 
 | Tool | What it does |
 |------|-------------|
-| `read_file` | Read a file from the repo |
-| `write_file` | Create or update a single file |
-| `push_multiple_files` | Create/update multiple files in one commit |
-| `list_files` | List directory contents |
-| `create_issue` | Create a new GitHub Issue |
-| `update_issue` | Update an existing Issue |
-| `list_issues` | List Issues with optional filters |
-| `add_issue_comment` | Comment on an Issue |
-
-### Planned (V2 — see `docs/plans/002-mcp-v2-build-spec.md`):
-
-| Tool | What it does |
-|------|-------------|
-| `search_files` | Search code across the repo |
-| `move_file` | Copy to new path + manual delete link |
-| `queue_write` | Queue a write for batch commit |
-| `flush_queue` | Commit all queued writes |
-| `delete_file` | Delete a file (Tier 4 permissions) |
-| `get_recent_commits` | View recent commit history |
+| `create_branch` | Create a new branch from an existing one |
+| `list_branches` | List all branches in the repo |
+| `get_file_diff` | Show file changes since a specific commit SHA |
+| `get_project_board` | Read GitHub Projects kanban board |
+| `move_issue_to_column` | Move an issue card on the Projects board |
 
 ---
 
@@ -336,7 +344,7 @@ Once logged, don't re-litigate.
 
 ---
 
-*Last updated: 2026-03-12*
+*Last updated: 2026-03-13 (V2 build complete)*
 
 *This file is maintained collaboratively. Claude updates operating rules
 and conventions. The builder agent updates tool lists and technical

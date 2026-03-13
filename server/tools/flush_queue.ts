@@ -1,35 +1,23 @@
 import { octokit, validateOwnerRepo, ownerRepoParams, logToolCall } from "../lib/github.js";
+import { getWriteQueue } from "./queue_write.js";
 
-export const pushMultipleFilesSchema = {
-  name: "push_multiple_files",
-  description: "Create or update multiple files in a single commit using the Git Data API",
+export const flushQueueSchema = {
+  name: "flush_queue",
+  description: "Commit all queued writes for a repository in a single GitHub commit. Call queue_write first to add files to the queue.",
   inputSchema: {
     type: "object" as const,
     properties: {
       ...ownerRepoParams,
-      files: {
-        type: "array",
-        items: {
-          type: "object",
-          properties: {
-            path: { type: "string", description: "File path in the repo" },
-            content: { type: "string", description: "Full file content" },
-          },
-          required: ["path", "content"],
-        },
-        description: "Array of files to create/update",
-      },
       commit_message: { type: "string", description: "Commit message (auto-generated if not provided)" },
       branch: { type: "string", description: "Branch name (default: main)", default: "main" },
     },
-    required: ["owner", "repo", "files"],
+    required: ["owner", "repo"],
   },
 };
 
-export async function pushMultipleFiles(args: {
+export async function flushQueue(args: {
   owner?: string;
   repo?: string;
-  files: Array<{ path: string; content: string }>;
   commit_message?: string;
   branch?: string;
 }) {
@@ -38,8 +26,25 @@ export async function pushMultipleFiles(args: {
     return { content: [{ type: "text", text: `Error: ${validated.error}` }], isError: true };
   }
   const { owner, repo } = validated;
-  const { files, branch = "main" } = args;
-  const commitMessage = args.commit_message || `Claude: push ${files.length} files`;
+  const { branch = "main" } = args;
+
+  const writeQueue = getWriteQueue();
+  const key = `${owner}/${repo}`;
+  const repoQueue = writeQueue.get(key);
+
+  if (!repoQueue || repoQueue.size === 0) {
+    return {
+      content: [
+        {
+          type: "text",
+          text: `No writes queued for ${owner}/${repo}. Use queue_write to add files first.`,
+        },
+      ],
+    };
+  }
+
+  const files = Array.from(repoQueue.entries()).map(([path, content]) => ({ path, content }));
+  const commitMessage = args.commit_message || `Claude: batch commit ${files.length} files`;
 
   try {
     const refResponse = await octokit.git.getRef({ owner, repo, ref: `heads/${branch}` });
@@ -75,19 +80,24 @@ export async function pushMultipleFiles(args: {
 
     await octokit.git.updateRef({ owner, repo, ref: `heads/${branch}`, sha: newCommit.data.sha });
 
+    repoQueue.clear();
+    if (repoQueue.size === 0) {
+      writeQueue.delete(key);
+    }
+
     const filePaths = files.map((f) => f.path).join(", ");
-    logToolCall("push_multiple_files", { owner, repo, files: filePaths, branch, commit_message: commitMessage }, "success", `commit: ${newCommit.data.sha}`);
+    logToolCall("flush_queue", { owner, repo, fileCount: files.length, branch, commit_message: commitMessage }, "success", `commit: ${newCommit.data.sha}`);
     return {
       content: [
         {
           type: "text",
-          text: `✅ Writing to: ${owner}/${repo}\nSuccessfully pushed ${files.length} files in a single commit.\nFiles: ${filePaths}\nCommit SHA: ${newCommit.data.sha}\nBranch: ${branch}`,
+          text: `✅ Writing to: ${owner}/${repo}\nSuccessfully committed ${files.length} queued file${files.length === 1 ? "" : "s"} in a single commit.\nFiles: ${filePaths}\nCommit SHA: ${newCommit.data.sha}\nBranch: ${branch}`,
         },
       ],
     };
   } catch (error: any) {
-    const message = `Failed to push multiple files: ${error.message}`;
-    logToolCall("push_multiple_files", { owner, repo, fileCount: files.length, branch }, "error", message);
+    const message = `Failed to flush queue: ${error.message}`;
+    logToolCall("flush_queue", { owner, repo, fileCount: files.length, branch }, "error", message);
     return { content: [{ type: "text", text: `Error: ${message}` }], isError: true };
   }
 }

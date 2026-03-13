@@ -1,31 +1,33 @@
-import { octokit, OWNER, REPO, logToolCall } from "../lib/github.js";
+import { octokit, validateOwnerRepo, ownerRepoParams, logToolCall } from "../lib/github.js";
 
 export const listFilesSchema = {
   name: "list_files",
-  description: "List files and folders at a path in the GitHub repo",
+  description: "List files and folders at a path in a GitHub repository",
   inputSchema: {
     type: "object" as const,
     properties: {
+      ...ownerRepoParams,
       path: { type: "string", description: "Directory path (default: root)", default: "" },
       branch: { type: "string", description: "Branch name (default: main)", default: "main" },
     },
+    required: ["owner", "repo"],
   },
 };
 
-export async function listFiles(args: { path?: string; branch?: string }) {
+export async function listFiles(args: { owner?: string; repo?: string; path?: string; branch?: string }) {
+  const validated = validateOwnerRepo(args);
+  if ("error" in validated) {
+    return { content: [{ type: "text", text: `Error: ${validated.error}` }], isError: true };
+  }
+  const { owner, repo } = validated;
   const { path = "", branch = "main" } = args;
 
   try {
-    const response = await octokit.repos.getContent({
-      owner: OWNER,
-      repo: REPO,
-      path,
-      ref: branch,
-    });
-
+    const response = await octokit.repos.getContent({ owner, repo, path, ref: branch });
     const data = response.data;
+
     if (!Array.isArray(data)) {
-      logToolCall("list_files", { path, branch }, "error", "Path is a file, not a directory");
+      logToolCall("list_files", { owner, repo, path, branch }, "error", "Path is a file, not a directory");
       return {
         content: [{ type: "text", text: `Error: '${path}' is a file, not a directory. Use read_file instead.` }],
         isError: true,
@@ -38,13 +40,13 @@ export async function listFiles(args: { path?: string; branch?: string }) {
       type: item.type === "dir" ? "dir" : "file",
     }));
 
-    logToolCall("list_files", { path, branch }, "success", `${items.length} items`);
+    logToolCall("list_files", { owner, repo, path, branch }, "success", `${items.length} items`);
     return { content: [{ type: "text", text: JSON.stringify(items, null, 2) }] };
   } catch (error: any) {
     const message = error.status === 404
-      ? `Directory not found: '${path}' on branch '${branch}'`
+      ? `Directory not found: '${path}' on branch '${branch}' in ${owner}/${repo}`
       : `Failed to list files: ${error.message}`;
-    logToolCall("list_files", { path, branch }, "error", message);
+    logToolCall("list_files", { owner, repo, path, branch }, "error", message);
     return { content: [{ type: "text", text: `Error: ${message}` }], isError: true };
   }
 }

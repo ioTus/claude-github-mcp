@@ -1,11 +1,12 @@
-import { octokit, OWNER, REPO, logToolCall } from "../lib/github.js";
+import { octokit, validateOwnerRepo, ownerRepoParams, logToolCall } from "../lib/github.js";
 
 export const createIssueSchema = {
   name: "create_issue",
-  description: "Create a new GitHub Issue in the repo",
+  description: "Create a new GitHub Issue in a repository",
   inputSchema: {
     type: "object" as const,
     properties: {
+      ...ownerRepoParams,
       title: { type: "string", description: "Issue title" },
       body: { type: "string", description: "Issue description in markdown" },
       labels: {
@@ -19,40 +20,40 @@ export const createIssueSchema = {
         description: "GitHub usernames to assign",
       },
     },
-    required: ["title"],
+    required: ["owner", "repo", "title"],
   },
 };
 
 export async function createIssue(args: {
+  owner?: string;
+  repo?: string;
   title: string;
   body?: string;
   labels?: string[];
   assignees?: string[];
 }) {
+  const validated = validateOwnerRepo(args);
+  if ("error" in validated) {
+    return { content: [{ type: "text", text: `Error: ${validated.error}` }], isError: true };
+  }
+  const { owner, repo } = validated;
   const { title, body, labels, assignees } = args;
 
   try {
-    const response = await octokit.issues.create({
-      owner: OWNER,
-      repo: REPO,
-      title,
-      body,
-      labels,
-      assignees,
-    });
+    const response = await octokit.issues.create({ owner, repo, title, body, labels, assignees });
 
-    logToolCall("create_issue", { title }, "success", `#${response.data.number}`);
+    logToolCall("create_issue", { owner, repo, title }, "success", `#${response.data.number}`);
     return {
       content: [
         {
           type: "text",
-          text: `Issue created successfully.\nNumber: #${response.data.number}\nTitle: ${response.data.title}\nURL: ${response.data.html_url}`,
+          text: `✅ Writing to: ${owner}/${repo}\nIssue created successfully.\nNumber: #${response.data.number}\nTitle: ${response.data.title}\nURL: ${response.data.html_url}`,
         },
       ],
     };
   } catch (error: any) {
     const message = `Failed to create issue: ${error.message}`;
-    logToolCall("create_issue", { title }, "error", message);
+    logToolCall("create_issue", { owner, repo, title }, "error", message);
     return { content: [{ type: "text", text: `Error: ${message}` }], isError: true };
   }
 }
