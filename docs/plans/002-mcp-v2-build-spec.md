@@ -1,7 +1,7 @@
 # MCP Bridge V2 Build Spec
 
 *Status: agreed — ready for execution*
-*Issues: (pending — will be updated when execution issue is created)*
+*Issues: #5 — Execute V2 build spec*
 
 > This is the source-of-truth spec for the V2 build. The Replit Agent prompt
 > is embedded below. Replit Agent should read this plan doc, then execute.
