@@ -1,8 +1,13 @@
 import { validateOwnerRepo, ownerRepoParams, logToolCall } from "../lib/github.js";
 
-const writeQueue: Map<string, Map<string, string>> = new Map();
+interface QueueEntry {
+  content: string;
+  branch: string;
+}
 
-export function getWriteQueue(): Map<string, Map<string, string>> {
+const writeQueue: Map<string, Map<string, QueueEntry>> = new Map();
+
+export function getWriteQueue(): Map<string, Map<string, QueueEntry>> {
   return writeQueue;
 }
 
@@ -15,6 +20,7 @@ export const queueWriteSchema = {
       ...ownerRepoParams,
       path: { type: "string", description: "File path" },
       content: { type: "string", description: "File content" },
+      branch: { type: "string", description: "Branch name (default: main)", default: "main" },
     },
     required: ["owner", "repo", "path", "content"],
   },
@@ -25,29 +31,30 @@ export async function queueWrite(args: {
   repo?: string;
   path: string;
   content: string;
+  branch?: string;
 }) {
   const validated = validateOwnerRepo(args);
   if ("error" in validated) {
     return { content: [{ type: "text", text: `Error: ${validated.error}` }], isError: true };
   }
   const { owner, repo } = validated;
-  const { path, content } = args;
+  const { path, content, branch = "main" } = args;
 
-  const key = `${owner}/${repo}`;
+  const key = `${owner}/${repo}/${branch}`;
   if (!writeQueue.has(key)) {
     writeQueue.set(key, new Map());
   }
 
   const repoQueue = writeQueue.get(key)!;
   const wasReplaced = repoQueue.has(path);
-  repoQueue.set(path, content);
+  repoQueue.set(path, { content, branch });
 
-  logToolCall("queue_write", { owner, repo, path }, "success", `queued (${repoQueue.size} pending)`);
+  logToolCall("queue_write", { owner, repo, path, branch }, "success", `queued (${repoQueue.size} pending)`);
   return {
     content: [
       {
         type: "text",
-        text: `✅ Writing to: ${owner}/${repo}\nQueued ✓ — ${repoQueue.size} write${repoQueue.size === 1 ? "" : "s"} pending for ${owner}/${repo}.${wasReplaced ? `\n(Previous content for '${path}' was replaced — last-write-wins.)` : ""}\nCall flush_queue to commit.\n⚠️ Note: queue resets if the server restarts.`,
+        text: `✅ Writing to: ${owner}/${repo}\nQueued ✓ — ${repoQueue.size} write${repoQueue.size === 1 ? "" : "s"} pending for ${owner}/${repo} (branch: ${branch}).${wasReplaced ? `\n(Previous content for '${path}' was replaced — last-write-wins.)` : ""}\nCall flush_queue to commit.\n⚠️ Note: queue resets if the server restarts.`,
       },
     ],
   };

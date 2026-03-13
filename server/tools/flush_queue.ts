@@ -29,7 +29,7 @@ export async function flushQueue(args: {
   const { branch = "main" } = args;
 
   const writeQueue = getWriteQueue();
-  const key = `${owner}/${repo}`;
+  const key = `${owner}/${repo}/${branch}`;
   const repoQueue = writeQueue.get(key);
 
   if (!repoQueue || repoQueue.size === 0) {
@@ -37,13 +37,13 @@ export async function flushQueue(args: {
       content: [
         {
           type: "text",
-          text: `No writes queued for ${owner}/${repo}. Use queue_write to add files first.`,
+          text: `No writes queued for ${owner}/${repo} on branch '${branch}'. Use queue_write to add files first.`,
         },
       ],
     };
   }
 
-  const files = Array.from(repoQueue.entries()).map(([path, content]) => ({ path, content }));
+  const files = Array.from(repoQueue.entries()).map(([path, entry]) => ({ path, content: entry.content }));
   const commitMessage = args.commit_message || `Claude: batch commit ${files.length} files`;
 
   try {

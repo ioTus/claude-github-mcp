@@ -65,7 +65,7 @@ for (const stub of phase2Stubs) {
 
 function createMcpServer(): Server {
   const mcpServer = new Server(
-    { name: "claude-github-mcp", version: "1.0.0" },
+    { name: "claude-github-mcp", version: "2.0.0" },
     { capabilities: { tools: {} } }
   );
 
