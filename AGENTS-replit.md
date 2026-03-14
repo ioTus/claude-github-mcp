@@ -87,8 +87,31 @@ should:
 
 1. Update `CLAUDE.md` tool tables (Available Tools section)
 2. Update this file if the build affects workspace boundaries
-3. Comment on the relevant Issue with completion status
-4. Push code to GitHub as the final step
+3. Push code to GitHub (see rule below)
+4. Comment on the relevant Issue with completion status
+5. Close the Issue only after the push is confirmed
+
+---
+
+## GitHub Sync Rule
+
+**Code must be pushed to GitHub before an issue is closed.**
+
+GitHub is the shared workspace. If Replit has built something but not
+pushed it, Claude cannot review the work, CLAUDE.md drifts from reality,
+and the commit history becomes a lie.
+
+### Mandatory push checklist (before closing any issue):
+
+- [ ] All new or changed files are committed locally
+- [ ] `git push` (or equivalent GitHub API write) has been executed
+- [ ] The GitHub commit is visible in the repository
+- [ ] The Issue comment references the commit SHA or the file list pushed
+
+If Replit closes an issue without pushing, Claude should re-open it and
+file a follow-up issue noting the missing push. This has happened once
+(Issue #8, 2026-03-13) and produced unnecessary overhead — the convention
+exists to prevent recurrence.
 
 ---
 
