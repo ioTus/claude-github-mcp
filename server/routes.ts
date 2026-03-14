@@ -71,7 +71,7 @@ for (const stub of phase2Stubs) {
 
 function createMcpServer(): Server {
   const mcpServer = new Server(
-    { name: "claude-github-mcp", version: "2.0.0" },
+    { name: "gitbridge-mcp", version: "2.0.0" },
     { capabilities: { tools: {} } }
   );
 
@@ -215,7 +215,7 @@ export async function registerRoutes(
     res.json({
       resource: `${origin}/mcp`,
       authorization_servers: [origin],
-      resource_name: "claude-github-mcp",
+      resource_name: "gitbridge-mcp",
       bearer_methods_supported: ["header"],
     });
   };
@@ -399,7 +399,7 @@ export async function registerRoutes(
   app.get("/api/status", (req: Request, res: Response) => {
     const publicResponse = {
       status: "running",
-      server: "claude-github-mcp",
+      server: "gitbridge-mcp",
       version: "2.0.0",
     };
 
