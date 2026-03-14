@@ -45,7 +45,7 @@ Second Brain (hub repo)
         └── latest.md      ← "save memory" snapshot
 
 Spoke repos (project-specific)
-├── ioTus/claude-github-mcp    ← MCP bridge project
+├── ioTus/gitbridge-mcp    ← MCP bridge project
 ├── ioTus/trackback            ← TrackBack app
 └── (future MaGe Digital projects)
 ```
