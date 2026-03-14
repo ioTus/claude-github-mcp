@@ -65,13 +65,12 @@ Create a `.env` file or set these in your hosting platform's secrets/environment
 | `GITHUB_PERSONAL_ACCESS_TOKEN` | **Yes** | GitHub PAT with `repo` scope |
 | `OAUTH_CLIENT_ID` | **Yes** | OAuth Client ID for authenticating MCP connections |
 | `OAUTH_CLIENT_SECRET` | **Yes** | OAuth Client Secret (used to sign/verify JWT access tokens) |
+| `ALLOWED_REPOS` | No | Comma-separated `owner/repo` pairs to restrict which repositories tools can access (e.g. `ioTus/my-repo,ioTus/other-repo`). If unset, all repos the PAT can reach are allowed. |
 | `PORT` | No | Server port (default: `5000`) |
 
-The server will **refuse to start** if `GITHUB_PERSONAL_ACCESS_TOKEN` is missing. If only one of `OAUTH_CLIENT_ID` / `OAUTH_CLIENT_SECRET` is set, the server will also refuse to start.
+The server will **refuse to start** if any required variable is missing. All three are mandatory — there is no unauthenticated mode.
 
 > **V2 note:** `GITHUB_OWNER` and `GITHUB_REPO` environment variables are no longer used. The target repository is specified per tool call via `owner` and `repo` parameters.
-
-If neither OAuth variable is set, MCP endpoints are open (no authentication). This is fine for local development but **never deploy publicly without authentication**.
 
 ### 5. Deploy / Run
 
@@ -135,12 +134,22 @@ No secrets are embedded in URLs. All authentication happens via standard HTTP he
 - In multi-repo mode, Claude can access any repo the PAT has permissions for — use Claude Project system prompts to constrain which repo Claude targets (see [Project Scoping](#project-scoping))
 - Treat all tokens and secrets as confidential — never commit them to version control
 
+### PAT scoping best practices
+
+Your GitHub PAT determines the **blast radius** — every repo the PAT can access is reachable through the MCP bridge. To minimize risk:
+
+- **Use fine-grained PATs** (GitHub → Settings → Developer Settings → Fine-grained tokens) scoped to specific repositories whenever possible. This limits Claude to only the repos you explicitly grant access to, even if someone obtains your OAuth credentials.
+- **Use classic PATs with `repo` scope only** if fine-grained tokens don't support your use case. Avoid granting `admin`, `delete_repo`, or other elevated scopes.
+- **Create separate PATs per use case** — e.g., one for your personal projects, another for work repos. Run separate bridge instances if needed.
+- **Rotate PATs regularly** and revoke any that are no longer in use.
+
 ### Recommendations
 
-- Always set `OAUTH_CLIENT_ID` and `OAUTH_CLIENT_SECRET` on any publicly accessible deployment
+- The server **requires** `OAUTH_CLIENT_ID` and `OAUTH_CLIENT_SECRET` — it will not start without them
+- Set `ALLOWED_REPOS` to restrict which repositories can be accessed through the bridge (e.g. `ALLOWED_REPOS=ioTus/my-repo,ioTus/other-repo`)
 - Use a GitHub PAT with the minimum required scope (`repo`)
-- Consider using a fine-grained PAT scoped to a single repository if GitHub supports it for your use case
 - Rotate credentials periodically
+- Audit your PAT's repository access periodically at GitHub → Settings → Developer Settings → Personal Access Tokens
 
 ## Tools
 
@@ -178,7 +187,14 @@ All tools accept `owner` and `repo` as required parameters. Write tools prefix t
 | `create_issue` | Create a new GitHub Issue |
 | `update_issue` | Update an existing GitHub Issue |
 | `list_issues` | List GitHub Issues with optional filters |
+| `read_issue` | Read the full body and comments of a GitHub Issue |
 | `add_issue_comment` | Add a comment to an existing GitHub Issue |
+
+### Repo Management
+
+| Tool | Description |
+|------|-------------|
+| `create_repo` | Create a new GitHub repository (personal account or org). Returns `full_name`, `html_url`, `clone_url`, and `default_branch` so Claude can immediately write files to it. |
 
 ### Phase 2 (Registered stubs, not yet implemented)
 
@@ -204,9 +220,11 @@ All tools accept `owner` and `repo` as required parameters. Write tools prefix t
 
 ## Project Scoping
 
-Since V2 uses multi-repo mode (no hardcoded `GITHUB_OWNER`/`GITHUB_REPO`), you should use a **Claude Project** with a system prompt to lock Claude to a specific repository. This prevents accidental writes to the wrong repo.
+Since V2 uses multi-repo mode (no hardcoded `GITHUB_OWNER`/`GITHUB_REPO`), you should use **Claude Project system prompts** to control which repositories Claude targets. There are two approaches depending on your workflow:
 
-### Example system prompt
+### Option A: One Project per repo (recommended)
+
+The simplest and safest approach. Create a separate Claude Project for each repository, with a system prompt that locks Claude to that specific repo.
 
 ```
 You are working exclusively in the GitHub repository:
@@ -217,25 +235,100 @@ Never write to any other repository regardless of what the user asks.
 If asked to work in a different repo, tell the user to switch to
 the appropriate Claude Project for that repository.
 
-At the start of each session:
-1. Call list_files to confirm you can reach the repo
-2. Ask the user what they want to work on
+## Session Startup (do this every conversation)
+
+1. Read `CLAUDE.md` at the repo root — this is your full operating
+   manual with permissions, write discipline, and conventions.
+2. Read `AGENTS.md` and `AGENTS-replit.md` — these define the
+   multi-agent collaboration workflow.
+3. Call `list_files` to confirm connectivity.
+4. Check `docs/plans/` for active plans (status: executing).
+5. Check open Issues with `list_issues`.
+6. Ask the user what they want to work on.
+
+## Critical Rules (always active, even before reading CLAUDE.md)
+
+- NEVER commit a file without showing the user the content first
+  and getting explicit approval.
+- NEVER overwrite an existing file without reading the current
+  version first.
+- NEVER delete a file without the user confirming the specific
+  file path.
+- For all other rules, defer to CLAUDE.md and AGENTS.md in the repo.
+
+## Your Role
+
+You are the PM and strategist for this project. You write plans,
+specs, documentation, and issues. You do not own implementation
+code — that belongs to Replit Agent. Propose technical ideas inside
+plan docs and issue bodies, not as committed code files in Replit
+Agent's protected directories (server/, client/, script/).
+
+See CLAUDE.md for the full permissions model and AGENTS-replit.md
+for workspace boundaries.
 ```
 
-Create one Claude Project per repository you want to manage. Each project gets its own system prompt with the correct `owner` and `repo` values.
+This approach is recommended for most users. Each project has clear boundaries, and there's no risk of cross-repo mistakes.
 
-If your repository has a `CLAUDE.md` file, add it to the Claude Project as a project knowledge file — Claude will read it automatically at the start of each conversation for repo-specific rules and context.
+### Option B: One Project, multiple repos (advanced)
+
+For power users who work across multiple repos in a single conversation. The system prompt defines Claude's role but doesn't lock to a specific repo. Instead, each repo self-documents through a `CLAUDE.md` file at its root.
+
+```
+You are a developer assistant with access to GitHub repositories via
+the MCP bridge. You can work across multiple repos in a single session.
+
+Before performing any operation on a repo, read its CLAUDE.md file
+(if it exists) to pick up project-specific rules and context:
+  call read_file with owner=OWNER repo=REPO path=CLAUDE.md
+
+Always confirm the target owner/repo before any write operation.
+When switching between repos, announce the switch clearly.
+
+## Session Startup (do this every conversation)
+
+1. Ask the user which repo(s) they want to work with.
+2. Read `CLAUDE.md` from each target repo — this is the full
+   operating manual with permissions, write discipline, and conventions.
+3. Read `AGENTS.md` and `AGENTS-replit.md` from each target repo
+   (if they exist) for multi-agent collaboration context.
+4. Call `list_files` on each repo to confirm connectivity.
+5. Check `docs/plans/` for active plans (status: executing).
+6. Check open Issues with `list_issues`.
+7. Ask the user what they want to work on.
+
+## Critical Rules (always active, even before reading CLAUDE.md)
+
+- NEVER commit a file without showing the user the content first
+  and getting explicit approval.
+- NEVER overwrite an existing file without reading the current
+  version first.
+- NEVER delete a file without the user confirming the specific
+  file path.
+- For all other rules, defer to CLAUDE.md and AGENTS.md in each repo.
+
+## Your Role
+
+You are the PM and strategist for these projects. You write plans,
+specs, documentation, and issues. You do not own implementation
+code — that belongs to Replit Agent. Propose technical ideas inside
+plan docs and issue bodies, not as committed code files in Replit
+Agent's protected directories (server/, client/, script/).
+
+See CLAUDE.md in each repo for the full permissions model and
+AGENTS-replit.md for workspace boundaries.
+```
+
+This approach requires more discipline but enables cross-repo workflows (e.g., coordinating changes across a frontend and backend repo). Every write tool response includes `✅ Writing to: {owner}/{repo}` so you can always verify the target.
 
 ## Dashboard
 
-The server includes a web dashboard at the root URL that shows:
+The server includes a web dashboard at the root URL. Unauthenticated visitors see only the server name, version, and status. Sign in with your OAuth credentials (`OAUTH_CLIENT_ID` / `OAUTH_CLIENT_SECRET`) to view:
 
-- Server status, version, and operating mode
-- Authentication status (OAuth 2.0 enabled or open)
-- Token endpoint URL for reference
+- Connection details for setting up Claude's custom MCP connector
 - Active MCP sessions
-- MCP endpoint URL for easy copying
 - Full tool registry with phase indicators
+- Architecture diagram and setup instructions
 
 ## Tech Stack
 
