@@ -13,13 +13,16 @@ MCP (Model Context Protocol) bridge server that connects Claude Chat (claude.ai)
 ## Key Files
 - `server/routes.ts` — MCP server setup, OAuth token endpoint, Streamable HTTP + SSE endpoints, CORS, auth middleware, tool registration
 - `server/lib/github.ts` — Octokit client, shared `validateOwnerRepo()` helper, `ownerRepoParams` schema fragment
-- `server/tools/` — Individual tool implementations (16 active + 5 Phase 2 stubs)
-  - File tools: `read_file.ts`, `write_file.ts`, `push_multiple_files.ts`, `list_files.ts`
-  - Issue tools: `create_issue.ts`, `update_issue.ts`, `list_issues.ts`, `read_issue.ts`, `add_issue_comment.ts`
-  - Search: `search_files.ts`, `get_recent_commits.ts`
-  - Advanced: `move_file.ts`, `delete_file.ts`, `queue_write.ts`, `flush_queue.ts`
-  - Repo mgmt: `create_repo.ts`
-  - Stubs: `phase2_stubs.ts` (create_branch, list_branches, get_file_diff, get_project_board, move_issue_to_column)
+<!-- TOOLS:START -->
+- `server/tools/` — Individual tool implementations (19 active + 2 Phase 2 stubs)
+  - File Tools: `read_file.ts`, `write_file.ts`, `push_multiple_files.ts`, `list_files.ts`
+  - Issue Tools: `create_issue.ts`, `update_issue.ts`, `list_issues.ts`, `add_issue_comment.ts`, `read_issue.ts`
+  - Search & History: `search_files.ts`, `get_recent_commits.ts`, `get_file_diff.ts`
+  - Branch Tools: `create_branch.ts`, `list_branches.ts`
+  - Advanced File Operations: `move_file.ts`, `delete_file.ts`, `queue_write.ts`, `flush_queue.ts`
+  - Repo Management: `create_repo.ts`
+  - Stubs: `phase2_stubs.ts` (get_project_board, move_issue_to_column)
+<!-- TOOLS:END -->
 - `client/src/pages/Home.tsx` — Status dashboard with tool categories, project scoping template
 
 ## Environment Variables

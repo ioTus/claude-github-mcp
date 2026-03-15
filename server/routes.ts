@@ -8,43 +8,29 @@ import {
   ListToolsRequestSchema,
   CallToolRequestSchema,
 } from "@modelcontextprotocol/sdk/types.js";
-import { readFileSchema, readFile } from "./tools/read_file.js";
-import { writeFileSchema, writeFile } from "./tools/write_file.js";
-import { pushMultipleFilesSchema, pushMultipleFiles } from "./tools/push_multiple_files.js";
-import { listFilesSchema, listFiles } from "./tools/list_files.js";
-import { createIssueSchema, createIssue } from "./tools/create_issue.js";
-import { updateIssueSchema, updateIssue } from "./tools/update_issue.js";
-import { listIssuesSchema, listIssues } from "./tools/list_issues.js";
-import { addIssueCommentSchema, addIssueComment } from "./tools/add_issue_comment.js";
-import { readIssueSchema, readIssue } from "./tools/read_issue.js";
-import { searchFilesSchema, searchFiles } from "./tools/search_files.js";
-import { moveFileSchema, moveFile } from "./tools/move_file.js";
-import { deleteFileSchema, deleteFile } from "./tools/delete_file.js";
-import { queueWriteSchema, queueWrite } from "./tools/queue_write.js";
-import { flushQueueSchema, flushQueue } from "./tools/flush_queue.js";
-import { getRecentCommitsSchema, getRecentCommits } from "./tools/get_recent_commits.js";
-import { createRepoSchema, createRepo } from "./tools/create_repo.js";
+import { readFile } from "./tools/read_file.js";
+import { writeFile } from "./tools/write_file.js";
+import { pushMultipleFiles } from "./tools/push_multiple_files.js";
+import { listFiles } from "./tools/list_files.js";
+import { createIssue } from "./tools/create_issue.js";
+import { updateIssue } from "./tools/update_issue.js";
+import { listIssues } from "./tools/list_issues.js";
+import { addIssueComment } from "./tools/add_issue_comment.js";
+import { readIssue } from "./tools/read_issue.js";
+import { searchFiles } from "./tools/search_files.js";
+import { moveFile } from "./tools/move_file.js";
+import { deleteFile } from "./tools/delete_file.js";
+import { queueWrite } from "./tools/queue_write.js";
+import { flushQueue } from "./tools/flush_queue.js";
+import { getRecentCommits } from "./tools/get_recent_commits.js";
+import { createRepo } from "./tools/create_repo.js";
+import { createBranch } from "./tools/create_branch.js";
+import { listBranches } from "./tools/list_branches.js";
+import { getFileDiff } from "./tools/get_file_diff.js";
 import { phase2Stubs } from "./tools/phase2_stubs.js";
+import { allToolSchemas } from "./tools/registry.js";
 
-const allTools = [
-  readFileSchema,
-  writeFileSchema,
-  pushMultipleFilesSchema,
-  listFilesSchema,
-  createIssueSchema,
-  updateIssueSchema,
-  listIssuesSchema,
-  addIssueCommentSchema,
-  readIssueSchema,
-  searchFilesSchema,
-  moveFileSchema,
-  deleteFileSchema,
-  queueWriteSchema,
-  flushQueueSchema,
-  getRecentCommitsSchema,
-  createRepoSchema,
-  ...phase2Stubs.map((s) => s.schema),
-];
+const allTools = allToolSchemas;
 
 const toolHandlers: Record<string, (args: any) => Promise<any>> = {
   read_file: readFile,
@@ -63,6 +49,9 @@ const toolHandlers: Record<string, (args: any) => Promise<any>> = {
   flush_queue: flushQueue,
   get_recent_commits: getRecentCommits,
   create_repo: createRepo,
+  create_branch: createBranch,
+  list_branches: listBranches,
+  get_file_diff: getFileDiff,
 };
 
 for (const stub of phase2Stubs) {
@@ -76,7 +65,13 @@ function createMcpServer(): Server {
   );
 
   mcpServer.setRequestHandler(ListToolsRequestSchema, async () => {
-    return { tools: allTools };
+    return {
+      tools: allTools.map(({ name, description, inputSchema }) => ({
+        name,
+        description,
+        inputSchema,
+      })),
+    };
   });
 
   mcpServer.setRequestHandler(CallToolRequestSchema, async (request) => {
@@ -425,6 +420,7 @@ export async function registerRoutes(
       tokenEndpoint: "/oauth/token",
       tools: allTools.map((t) => ({
         name: t.name,
+        category: t.category,
         description: t.description,
         phase: t.description.startsWith("[Phase 2]") ? 2 : 1,
       })),
