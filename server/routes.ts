@@ -171,6 +171,25 @@ function verifyJwt(token: string, secret: string): Record<string, any> | null {
   }
 }
 
+function safeCompare(a: string, b: string): boolean {
+  const bufA = Buffer.from(a);
+  const bufB = Buffer.from(b);
+  if (bufA.length !== bufB.length) {
+    const dummy = Buffer.alloc(bufA.length);
+    timingSafeEqual(bufA, dummy);
+    return false;
+  }
+  return timingSafeEqual(bufA, bufB);
+}
+
+const ALLOWED_REDIRECT_PATTERNS = [
+  /^https:\/\/(www\.)?claude\.(ai|com)(\/|$)/,
+];
+
+function isAllowedRedirectUri(uri: string): boolean {
+  return ALLOWED_REDIRECT_PATTERNS.some((p) => p.test(uri));
+}
+
 function getServerOrigin(req: Request): string {
   const proto = (req.get("x-forwarded-proto") || req.protocol).split(",")[0].trim();
   return `${proto}://${req.get("host")}`;
@@ -253,6 +272,12 @@ export async function registerRoutes(
       return;
     }
 
+    if (!isAllowedRedirectUri(redirectUri)) {
+      console.log(`[${new Date().toISOString()}] [OAuth] Rejected redirect_uri: ${redirectUri}`);
+      res.status(400).json({ error: "invalid_request", error_description: "redirect_uri is not in the allowed list" });
+      return;
+    }
+
     if (codeChallenge && codeChallengeMethod && codeChallengeMethod !== "S256") {
       res.status(400).json({ error: "invalid_request", error_description: "Only code_challenge_method=S256 is supported" });
       return;
@@ -314,7 +339,7 @@ export async function registerRoutes(
       return;
     }
 
-    if (clientId !== OAUTH_CLIENT_ID) {
+    if (!safeCompare(clientId, OAUTH_CLIENT_ID!)) {
       res.status(401).json({ error: "invalid_client", error_description: "Invalid client_id" });
       return;
     }
@@ -324,7 +349,7 @@ export async function registerRoutes(
       return;
     }
 
-    if (clientSecret !== OAUTH_CLIENT_SECRET) {
+    if (!safeCompare(clientSecret, OAUTH_CLIENT_SECRET!)) {
       res.status(401).json({ error: "invalid_client", error_description: "Invalid client_secret" });
       return;
     }

@@ -14,19 +14,19 @@ MCP (Model Context Protocol) bridge server that connects Claude Chat (claude.ai)
 - `server/routes.ts` — MCP server setup, OAuth token endpoint, Streamable HTTP + SSE endpoints, CORS, auth middleware, tool registration
 - `server/lib/github.ts` — Octokit client, shared `validateOwnerRepo()` helper, `ownerRepoParams` schema fragment
 <!-- TOOLS:START -->
-- `server/tools/` — Individual tool implementations (19 active + 2 Phase 2 stubs)
+- `server/tools/` — Individual tool implementations (21 active)
   - File Tools: `read_file.ts`, `write_file.ts`, `push_multiple_files.ts`, `list_files.ts`
   - Issue Tools: `create_issue.ts`, `update_issue.ts`, `list_issues.ts`, `add_issue_comment.ts`, `read_issue.ts`
   - Search & History: `search_files.ts`, `get_recent_commits.ts`, `get_file_diff.ts`
   - Branch Tools: `create_branch.ts`, `list_branches.ts`
   - Advanced File Operations: `move_file.ts`, `delete_file.ts`, `queue_write.ts`, `flush_queue.ts`
   - Repo Management: `create_repo.ts`
-  - Stubs: `phase2_stubs.ts` (get_project_board, move_issue_to_column)
+  - Project Management: `get_project_board.ts`, `move_issue_to_column.ts`
 <!-- TOOLS:END -->
 - `client/src/pages/Home.tsx` — Status dashboard with tool categories, project scoping template
 
 ## Environment Variables
-- `GITHUB_PERSONAL_ACCESS_TOKEN` — GitHub PAT with repo scope (required, server exits if missing)
+- `GITHUB_PERSONAL_ACCESS_TOKEN` — GitHub PAT with `repo` + `project` scopes (required, server exits if missing)
 - `OAUTH_CLIENT_ID` — OAuth Client ID (required, server exits if missing)
 - `OAUTH_CLIENT_SECRET` — OAuth Client Secret; used to sign/verify JWT access tokens (required, server exits if missing)
 - `ALLOWED_REPOS` — Optional comma-separated `owner/repo` pairs to restrict tool access (e.g. `ioTus/my-repo,ioTus/other-repo`). When unset, all repos the PAT can reach are allowed.
@@ -37,7 +37,17 @@ MCP (Model Context Protocol) bridge server that connects Claude Chat (claude.ai)
 - Dashboard login uses `client_credentials` grant with the same OAuth credentials. JWT stored in `sessionStorage`.
 - `/api/status` returns tiered data: unauthenticated gets `{status, server, version}` only; authenticated gets full tool list, session count, and endpoint info.
 - CORS headers are only set for allow-listed origins (claude.ai, claude.com). Unknown origins get no CORS headers.
+- `/authorize` validates `redirect_uri` against a static allowlist (claude.ai/com domains only) before issuing auth codes — prevents open-redirect attacks.
+- Client credential comparisons in `/oauth/token` use constant-time `timingSafeEqual` to prevent timing side-channel attacks.
+- `trust proxy` is set to `1` so `req.ip` and `req.protocol` are correct behind Replit's reverse proxy.
 - Optional `ALLOWED_REPOS` env var restricts which repositories all tools can access. Check is in `validateOwnerRepo()`.
+
+## Dev Auto-Login
+- In development mode (`NODE_ENV=development`), the server exposes `GET /api/dev-credentials` which returns OAuth client_id and client_secret
+- The dashboard frontend auto-detects dev mode (`import.meta.env.MODE === "development"`) and uses this endpoint to auto-login without manual credential entry
+- This enables e2e testing of the authenticated dashboard without hardcoding secrets
+- `.dev-credentials.json` is in `.gitignore` — credentials never reach the repo or production
+- In production, `/api/dev-credentials` is not registered, so the endpoint returns 404
 
 ## Endpoints
 - `GET /.well-known/oauth-protected-resource[/mcp]` — RFC 9728 Protected Resource Metadata
