@@ -95,33 +95,65 @@ should:
 
 ## Sync to GitHub
 
-**GitHub is the source of truth. Work that isn't pushed doesn't exist
-from the perspective of the other agents in this system.**
+GitHub is the source of truth. Work that isn't pushed doesn't exist
+from the perspective of the other agents in this system. Work that
+isn't pulled before starting may create conflicts.
 
-After completing any issue or significant body of work:
+### Before Starting Work (every session, every issue)
 
 1. **Verify remote:** `git remote -v` — confirm `origin` points to
    `https://github.com/ioTus/gitbridge-mcp.git`. If missing, add it:
    `git remote add origin https://github.com/ioTus/gitbridge-mcp.git`
    (this is not a destructive operation).
-2. **Fetch and check for conflicts:**
-   `git fetch origin main && git status` — if there are upstream changes
-   that conflict, **STOP** and notify the user. Do not force-push.
+2. **Fetch latest:** `git fetch origin main`
+3. **Check for upstream changes:** `git diff HEAD origin/main --stat`
+4. **If changes exist:** `git pull origin main` (merge, do not rebase)
+5. **If conflicts:** STOP and tell the user. Do not auto-resolve.
+
+This is critical because Claude pushes directly to GitHub via the
+MCP bridge — plan docs, CLAUDE.md updates, decision logs, and other
+files may have changed since the last session. Skipping this step
+risks overwriting Claude's work.
+
+If `git fetch` / `git pull` are blocked by environment restrictions,
+use the GitHub API (Contents API) to check for upstream changes by
+comparing file contents before writing.
+
+### After Completing Work (every issue, every significant milestone)
+
+1. **Fetch latest again:** `git fetch origin main`
+   (Claude may have pushed while you were building)
+2. **Check for conflicts:** `git diff HEAD origin/main --stat`
 3. **If clean:** `git push origin main` — a normal push, not `--force`.
    If `git push` is blocked by environment restrictions, use the GitHub
    API (Contents or Git Data API) to push file changes directly.
-4. **If conflicts:** STOP and notify the user. Do not force-push or
-   rebase without explicit user approval.
-5. **Confirm on the Issue:** comment with the commit SHA so Claude can
+4. **If upstream changes:** `git pull origin main` (merge), then push.
+5. **If conflicts:** STOP and tell the user. Do not force-push.
+6. **Confirm on the Issue:** comment with the commit SHA so Claude can
    verify the changes landed.
 
-### What NOT to do
+### Rules
 
 - **Never `git push --force`** — rewrites history and can destroy
   Claude's commits (Claude writes directly to GitHub via MCP)
-- **Never rebase against remote** without user approval — same risk
+- **Never `git rebase` against remote** without user approval — same
+  risk
+- **Always pull then push** — never push without checking for upstream
+  changes first
 - **Never skip the push** after completing an issue
 - **Never close an issue** without confirming the push landed
+
+### Shared Files — Conflict Risk
+
+Some files are edited by both agents:
+- `CLAUDE.md` — Claude owns the rules/permissions/conventions sections;
+  Replit owns the tool table between `<!-- TOOLS:START -->` and
+  `<!-- TOOLS:END -->` markers
+- `README.md` — both agents may update different sections
+
+If you see a merge conflict in any of these files, STOP and tell the
+user. Do not auto-resolve — the user will decide which version to keep
+or how to merge.
 
 ### Mandatory push checklist (before closing any issue):
 
