@@ -93,13 +93,35 @@ should:
 
 ---
 
-## GitHub Sync Rule
+## Sync to GitHub
 
-**Code must be pushed to GitHub before an issue is closed.**
+**GitHub is the source of truth. Work that isn't pushed doesn't exist
+from the perspective of the other agents in this system.**
 
-GitHub is the shared workspace. If Replit has built something but not
-pushed it, Claude cannot review the work, CLAUDE.md drifts from reality,
-and the commit history becomes a lie.
+After completing any issue or significant body of work:
+
+1. **Verify remote:** `git remote -v` — confirm `origin` points to
+   `https://github.com/ioTus/gitbridge-mcp.git`. If missing, add it:
+   `git remote add origin https://github.com/ioTus/gitbridge-mcp.git`
+   (this is not a destructive operation).
+2. **Fetch and check for conflicts:**
+   `git fetch origin main && git status` — if there are upstream changes
+   that conflict, **STOP** and notify the user. Do not force-push.
+3. **If clean:** `git push origin main` — a normal push, not `--force`.
+   If `git push` is blocked by environment restrictions, use the GitHub
+   API (Contents or Git Data API) to push file changes directly.
+4. **If conflicts:** STOP and notify the user. Do not force-push or
+   rebase without explicit user approval.
+5. **Confirm on the Issue:** comment with the commit SHA so Claude can
+   verify the changes landed.
+
+### What NOT to do
+
+- **Never `git push --force`** — rewrites history and can destroy
+  Claude's commits (Claude writes directly to GitHub via MCP)
+- **Never rebase against remote** without user approval — same risk
+- **Never skip the push** after completing an issue
+- **Never close an issue** without confirming the push landed
 
 ### Mandatory push checklist (before closing any issue):
 
@@ -108,10 +130,12 @@ and the commit history becomes a lie.
 - [ ] The GitHub commit is visible in the repository
 - [ ] The Issue comment references the commit SHA or the file list pushed
 
+### History
+
 If Replit closes an issue without pushing, Claude should re-open it and
-file a follow-up issue noting the missing push. This has happened once
-(Issue #8, 2026-03-13) and produced unnecessary overhead — the convention
-exists to prevent recurrence.
+file a follow-up issue noting the missing push. This has happened before
+(Issue #8, 2026-03-13; Issue #15, 2026-03-16) and produced unnecessary
+overhead — the convention exists to prevent recurrence.
 
 ---
 
@@ -129,7 +153,7 @@ Include the plan doc reference when applicable:
 
 ---
 
-*Last updated: 2026-03-14*
+*Last updated: 2026-03-16*
 
 *This file is maintained by Replit Agent with user approval. Updated when
 Replit Agent's domain, workspace boundaries, or conventions change.
