@@ -345,7 +345,7 @@ to have the `project` scope for GitHub Projects V2 access.
 
 ---
 
-*Last updated: 2026-03-14 (added read_issue, create_repo — Issue #7, #9)*
+*Last updated: 2026-03-16 (all 21 tools live, Phase 2 stubs removed, security hardening — Issues #12, #14, #16)*
 
 *This file is maintained collaboratively. Claude updates operating rules
 and conventions. The builder agent updates tool lists and technical
