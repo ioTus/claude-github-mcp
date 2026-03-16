@@ -273,6 +273,54 @@ Agent's protected directories (server/, client/, script/).
 
 See CLAUDE.md for the full permissions model and AGENTS-replit.md
 for workspace boundaries.
+
+## Connection Failure Protocol
+
+This lives here — not on the server — because when the bridge
+is down, server-side instructions are unreachable.
+
+### Degraded Mode (activate immediately on failure)
+
+When any MCP tool call fails:
+
+1. Announce: "Bridge is down. Switching to degraded mode —
+   all work will be staged here and pushed when it's back."
+2. Draft all files/issues exactly as they'd appear in the repo.
+   Tag each with file path + commit message, or issue title + labels.
+3. Maintain a queue manifest:
+   | # | Type | Path / Title | Status |
+   |---|------|-------------|--------|
+4. Silent-retry bridge ONCE per new user message.
+5. Continue working. Zero productivity loss.
+
+Never skip approval. Never spam retries. Never lose the queue.
+
+### Diagnose (on request, or if user wants to troubleshoot)
+
+If the user asks why the bridge is down or wants to fix it:
+1. Classify: auth error (handshake/PAT), timeout (server asleep),
+   connection refused (server down/URL wrong), 403 (PAT scopes),
+   404 (bad path/repo), rate limit (wait/retry)
+2. Try `list_files` to confirm systemic vs. isolated failure
+3. Report: what failed, what it means, ONE recommended fix
+   tailored to user's environment. Never a generic list.
+4. Ask desktop or mobile BEFORE prescribing recovery steps.
+   - Desktop: remove/re-add connector in Settings → Connectors.
+     Check deployment is awake. Verify PAT not expired.
+   - Mobile: try claude.ai in mobile browser with "request
+     desktop site" to access Connectors. If inaccessible →
+     stay in degraded mode until desktop available.
+   - Either: visit server URL in browser to confirm it responds.
+
+### Reconnection (exiting degraded mode)
+
+When any MCP call succeeds after a period of degraded mode:
+1. Announce: "Bridge is back online."
+2. Display the full queue manifest.
+3. Get single user approval to push everything.
+4. Execute: files via push_multiple_files, issues via create_issue.
+5. Confirm each item pushed successfully.
+6. Clear the queue. Resume normal operations.
 ```
 
 This approach is recommended for most users. Each project has clear boundaries, and there's no risk of cross-repo mistakes.
@@ -324,6 +372,54 @@ Agent's protected directories (server/, client/, script/).
 
 See CLAUDE.md in each repo for the full permissions model and
 AGENTS-replit.md for workspace boundaries.
+
+## Connection Failure Protocol
+
+This lives here — not on the server — because when the bridge
+is down, server-side instructions are unreachable.
+
+### Degraded Mode (activate immediately on failure)
+
+When any MCP tool call fails:
+
+1. Announce: "Bridge is down. Switching to degraded mode —
+   all work will be staged here and pushed when it's back."
+2. Draft all files/issues exactly as they'd appear in the repo.
+   Tag each with file path + commit message, or issue title + labels.
+3. Maintain a queue manifest:
+   | # | Type | Path / Title | Status |
+   |---|------|-------------|--------|
+4. Silent-retry bridge ONCE per new user message.
+5. Continue working. Zero productivity loss.
+
+Never skip approval. Never spam retries. Never lose the queue.
+
+### Diagnose (on request, or if user wants to troubleshoot)
+
+If the user asks why the bridge is down or wants to fix it:
+1. Classify: auth error (handshake/PAT), timeout (server asleep),
+   connection refused (server down/URL wrong), 403 (PAT scopes),
+   404 (bad path/repo), rate limit (wait/retry)
+2. Try `list_files` to confirm systemic vs. isolated failure
+3. Report: what failed, what it means, ONE recommended fix
+   tailored to user's environment. Never a generic list.
+4. Ask desktop or mobile BEFORE prescribing recovery steps.
+   - Desktop: remove/re-add connector in Settings → Connectors.
+     Check deployment is awake. Verify PAT not expired.
+   - Mobile: try claude.ai in mobile browser with "request
+     desktop site" to access Connectors. If inaccessible →
+     stay in degraded mode until desktop available.
+   - Either: visit server URL in browser to confirm it responds.
+
+### Reconnection (exiting degraded mode)
+
+When any MCP call succeeds after a period of degraded mode:
+1. Announce: "Bridge is back online."
+2. Display the full queue manifest.
+3. Get single user approval to push everything.
+4. Execute: files via push_multiple_files, issues via create_issue.
+5. Confirm each item pushed successfully.
+6. Clear the queue. Resume normal operations.
 ```
 
 This approach requires more discipline but enables cross-repo workflows (e.g., coordinating changes across a frontend and backend repo). Every write tool response includes `✅ Writing to: {owner}/{repo}` so you can always verify the target.
