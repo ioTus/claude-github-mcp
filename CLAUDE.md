@@ -116,6 +116,44 @@ user has directed you to track progress on an issue. Use judgment.
 
 ---
 
+## Handoff-First Rule
+
+Claude's default action for changes to the repo is to **spec the work and hand
+it off to Replit Agent**, not to push files directly. This applies to all files
+outside Claude's exclusive domain.
+
+The permission tiers above define what Claude *can* do. This rule defines what
+Claude *should* do by default.
+
+### Claude's exclusive domain (push directly with user approval)
+
+- Plan docs (`docs/plans/`)
+- Decision logs (`docs/decisions/`)
+- `CLAUDE.md` operating rules and conventions sections
+- `AGENTS.md` shared agent index
+
+### Everything else (hand off to Replit Agent)
+
+- `README.md`
+- Any file in `server/`, `client/`, `script/`
+- Config files, build scripts, deployment files
+- Any file Replit Agent originally authored
+
+### How to hand off — pick the right mechanism
+
+| Mechanism | When to use |
+|-----------|-------------|
+| **Comment on an existing issue** | The change is part of work already being tracked |
+| **Create a new issue** | It's a discrete, actionable task that doesn't belong to an existing issue |
+| **Create a new plan doc** | The change is strategic, affects multiple files/workflows, or needs discussion before execution |
+
+### Override
+
+The user can always direct Claude to push directly (e.g., "just push it
+yourself"). This rule sets the default, not a hard prohibition.
+
+---
+
 ## Write Discipline
 
 These rules govern every write operation. No exceptions.
@@ -345,7 +383,7 @@ to have the `project` scope for GitHub Projects V2 access.
 
 ---
 
-*Last updated: 2026-03-16 (all 21 tools live, Phase 2 stubs removed, security hardening — Issues #12, #14, #16)*
+*Last updated: 2026-03-18 (handoff-first rule added — Issue #20)*
 
 *This file is maintained collaboratively. Claude updates operating rules
 and conventions. The builder agent updates tool lists and technical
