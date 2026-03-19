@@ -25,7 +25,6 @@ MCP (Model Context Protocol) bridge server that connects Claude Chat (claude.ai)
   - Stubs: `phase2_stubs.ts` ()
 <!-- TOOLS:END -->
 - `server/tools/registry.ts` — Tool registration with `allToolSchemas`, `activeToolSchemas`, `phase2ToolSchemas` exports
-- `scripts/sync-tool-docs.ts` — Generates tool tables in README.md, IME.md, replit.md from registry
 - `IME-docs/decisions/README.md` — Decision log for settled architectural decisions
 - `IME.md` — Spoke bootstrap (replaces CLAUDE.md), hub pointer to ioTus/ime, tool reference table
 - `IME-AGENTS.md` — Multi-agent collaboration index (replaces AGENTS.md)
@@ -84,7 +83,15 @@ MCP (Model Context Protocol) bridge server that connects Claude Chat (claude.ai)
 - Responses use `-response` suffix; revisions use `-v2`, `-v3`
 - GitHub Issues used for task tracking alongside plan documents
 - Replit Agent has GitHub API access via the Replit GitHub integration (authenticated as `ioTus`)
+- Issue comment attribution: `**[Replit Agent — Engineer]:**` or `**[Claude — PM/Strategist]:**` prefix (both agents post as `ioTus`)
+
+## Git Sync Protocol (Issue #23)
+- Local git has NO `origin` remote — `git push` cannot reach GitHub
+- All pushes to GitHub use the **Git Data API** (atomic multi-file commits)
+- Push sequence: GET refs/heads/main → GET commit → POST trees → POST commits → PATCH refs/heads/main
+- Local git state (HEAD, commit history) is unreliable — always read current state from GitHub API
+- Never reference local SHAs for GitHub operations; never `git push`; never `git pull`
+- Full protocol documented in `IME-AGENTS-replit.md` § "Sync to GitHub"
 
 ## Public Repository
 - Source published at github.com/ioTus/gitbridge-mcp
-
