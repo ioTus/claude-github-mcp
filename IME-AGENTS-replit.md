@@ -95,126 +95,152 @@ should:
 
 ## Sync to GitHub
 
-GitHub is the source of truth. Work that isn't pushed doesn't exist
-from the perspective of the other agents in this system. Work that
-isn't pulled before starting may create conflicts.
+  GitHub is the source of truth. Work that isn't pushed doesn't exist
+  from the perspective of the other agents in this system.
 
-### Before Starting Work (every session, every issue)
+  ### Platform Constraints (Confirmed via Issue #23)
 
-1. **Verify remote:** `git remote -v` — confirm `origin` points to
-   `https://github.com/ioTus/gitbridge-mcp.git`. If missing, add it:
-   `git remote add origin https://github.com/ioTus/gitbridge-mcp.git`
-   (this is not a destructive operation).
-2. **Fetch latest:** `git fetch origin main`
-3. **Check for upstream changes:** `git diff HEAD origin/main --stat`
-4. **If changes exist:** `git pull origin main` (merge, do not rebase)
-5. **If conflicts:** STOP and tell the user. Do not auto-resolve.
+  The Replit main agent workspace has the following hard constraints:
 
-This is critical because Claude pushes directly to GitHub via the
-MCP bridge — plan docs, IME.md updates, decision logs, and other
-files may have changed since the last session. Skipping this step
-risks overwriting Claude's work.
+  1. **No `origin` remote exists.** The only git remotes are
+     `gitsafe-backup` (Replit internal backup) and `subrepl-*`
+     (Replit workspace SSH). There is no remote pointing to GitHub.
+  2. **`git push` cannot reach GitHub.** Even with an HTTPS URL,
+     push operations time out silently. The platform blocks outbound
+     git protocol traffic.
+  3. **`git status`, `git add`, `git commit`** are blocked by a
+     permanent `.git/index.lock` held by the Replit platform. The
+     platform manages commits internally for its checkpoint system.
+  4. **`git log`, `git remote -v`, `git diff`** work (read-only).
+  5. **`gh` CLI is not installed.**
+  6. **Local git history may diverge from GitHub.** When pushes go
+     through the GitHub API (not `git push`), the local commit chain
+     and GitHub's commit chain diverge. Local git state is unreliable
+     as a reference for GitHub operations.
 
-If `git fetch` / `git pull` are blocked by environment restrictions,
-use the GitHub API (Contents API) to check for upstream changes by
-comparing file contents before writing. **Do not write those files
-locally** — see "Git Sync Failure Protocol" below.
+  **Bottom line:** The Git Data API is the **only reliable push mechanism.**
+  Local git state is maintained by Replit's internal systems for backup
+  purposes but is not a reliable reference for GitHub operations.
 
-### After Completing Work (every issue, every significant milestone)
+  ### The Git Data API Push Protocol (Confirmed Working)
 
-1. **Fetch latest again:** `git fetch origin main`
-   (Claude may have pushed while you were building)
-2. **Check for conflicts:** `git diff HEAD origin/main --stat`
-3. **If clean:** `git push origin main` — a normal push, not `--force`.
-   If `git push` is blocked by environment restrictions, use the GitHub
-   API (Contents or Git Data API) to push file changes directly.
-4. **If upstream changes:** `git pull origin main` (merge), then push.
-5. **If conflicts:** STOP and tell the user. Do not force-push.
-6. **Confirm on the Issue:** comment with the commit SHA so Claude can
-   verify the changes landed.
+  This sequence was tested and verified on Issue #23, commit `e25a2076`.
 
-### Rules
+  ```
+  PUSH SEQUENCE (atomic multi-file commit):
 
-- **Never `git push --force`** — rewrites history and can destroy
-  Claude's commits (Claude writes directly to GitHub via MCP)
-- **Never `git rebase` against remote** without user approval — same
-  risk
-- **Always pull then push** — never push without checking for upstream
-  changes first
-- **Never skip the push** after completing an issue
-- **Never close an issue** without confirming the push landed
+  1. GET  /repos/{owner}/{repo}/git/refs/heads/main
+     → current HEAD SHA (fetch this IMMEDIATELY before pushing)
 
-### Shared Files — Conflict Risk
+  2. GET  /repos/{owner}/{repo}/git/commits/{headSha}
+     → base tree SHA
 
-Some files are edited by both agents:
-- `IME.md` — Claude owns the rules/permissions/conventions sections;
-  Replit owns the tool table between `<!-- TOOLS:START -->` and
-  `<!-- TOOLS:END -->` markers
-- `README.md` — both agents may update different sections
+  3. POST /repos/{owner}/{repo}/git/trees
+     body: { base_tree: baseTreeSha, tree: [{ path, mode: "100644", type: "blob", content }] }
+     → new tree SHA
 
-If you see a merge conflict in any of these files, STOP and tell the
-user. Do not auto-resolve — the user will decide which version to keep
-or how to merge.
+  4. POST /repos/{owner}/{repo}/git/commits
+     body: { message, tree: newTreeSha, parents: [headSha] }
+     → new commit SHA
 
-### Mandatory push checklist (before closing any issue):
+  5. PATCH /repos/{owner}/{repo}/git/refs/heads/main
+     body: { sha: newCommitSha }
+     → updated ref (trust this response as confirmation)
 
-- [ ] All new or changed files are committed locally
-- [ ] `git push` (or equivalent GitHub API write) has been executed
-- [ ] The GitHub commit is visible in the repository
-- [ ] The Issue comment references the commit SHA or the file list pushed
+  6. VERIFY: The PATCH response returns the new SHA. If doing a
+     separate GET to verify, add a 3-second delay (GitHub API
+     eventual consistency).
+  ```
 
-### Git Sync Failure Protocol
+  For single-file writes, the Contents API is also reliable:
+  ```
+  SINGLE FILE WRITE:
 
-The Replit main agent **cannot** perform git write operations (`git pull`,
-`git push`, `git remote add`, etc.) — they are blocked at the platform
-level. This is not a bug; it is a hard restriction.
+  1. GET  /repos/{owner}/{repo}/contents/{path}?ref=main
+     → current content + SHA (the SHA is required for updates)
 
-**If git operations are blocked:**
+  2. PUT  /repos/{owner}/{repo}/contents/{path}
+     body: { message, content: base64(newContent), sha: currentSha }
+     → new commit SHA
+  ```
 
-1. Run `git remote -v` (read-only, always works) to confirm the remote
-   is missing or misconfigured.
-2. Use the GitHub API (Contents API) to compare local vs. remote file
-   contents — **read-only comparison only**.
-3. Report the divergence direction and file list to the user:
-   which files are ahead locally, which are ahead on GitHub.
-4. **Do NOT write files locally via the API as a pull substitute.**
-   This creates state outside git's awareness, makes `git status` lie,
-   and increases divergence. This was attempted in Issue #19 and made
-   things worse.
-5. Guide the user to reconnect via the Replit Git panel:
-   - Git (sidebar) → Settings → edit the Remote URL field
-   - Set to `https://github.com/ioTus/gitbridge-mcp.git`
-   - Pull from the main Git panel
-6. If the Git panel cannot reconnect (UI limitation), report that
-   clearly and wait for user input. Do not improvise further.
+  ### Session Start Checklist
 
-**If git push is blocked but you need to push:**
+  Before starting any work:
 
-Use the GitHub Contents API to push changed files individually. This
-is a degraded fallback — it creates one commit per file and does not
-handle deletions or renames atomically. Document what was pushed in
-the Issue comment.
+  1. Fetch GitHub HEAD: `GET /git/refs/heads/main` → note the SHA
+  2. Compare to local HEAD: `git log -1` → note the SHA
+  3. If SHAs differ: the histories have diverged (expected). Do not
+     attempt `git pull` or `git merge`. Accept that local git state
+     is decorative.
+  4. For any file you plan to edit that could also be edited by Claude,
+     read it from GitHub via Contents API and compare against the local
+     version before proceeding.
 
-**Session startup check (every session, before any work):**
+  ### Shared File Conflict Check
 
-Run `git remote -v` as the very first operation. If `origin` is
-missing or does not point to `ioTus/gitbridge-mcp`, alert the user
-immediately and do not proceed with file modifications until the
-remote is restored. This catches silently dropped remotes before
-any work gets tangled up.
+  Before writing to any file that both agents edit:
 
-See Issue #19 for the full incident that motivated this protocol.
+  - `IME.md` (tool table between `<!-- TOOLS:START -->` and `<!-- TOOLS:END -->`)
+  - `README.md`
+  - Any file outside Replit Agent's protected directories
 
-### History
+  **Procedure:**
+  1. Read the current version from GitHub via Contents API
+  2. Compare against the local version
+  3. If they differ: **STOP** and report the divergence to the user
+  4. If they match: proceed with the write
 
-If Replit closes an issue without pushing, Claude should re-open it and
-file a follow-up issue noting the missing push. This has happened before
-(Issue #8, 2026-03-13; Issue #15, 2026-03-16) and produced unnecessary
-overhead — the convention exists to prevent recurrence.
+  ### The Never-Do List
 
----
+  1. **Never `git push origin main`** — `origin` doesn't exist and
+     cannot be configured to reach GitHub from this platform
+  2. **Never assume a Replit commit reached GitHub** — local commits
+     only reach `gitsafe-backup` (Replit internal), never GitHub
+  3. **Never build a Git Data API commit on a stale SHA** — always
+     fetch the current HEAD immediately before constructing the
+     tree/commit. Claude may have pushed in between.
+  4. **Never declare "pushed to GitHub" without verifying** — check the
+     `PATCH /git/refs` response SHA or do a delayed `GET` to confirm
+  5. **Never `git push --force`** — rewrites history, can destroy
+     Claude's commits
+  6. **Never `git pull` or `git merge`** — no valid GitHub remote
+     exists, and local history has diverged from GitHub
+  7. **Never close an issue without confirming the push landed** on
+     GitHub with a commit SHA in the issue comment
+  8. **Never reference local git state (HEAD SHA, commit history) as
+     the basis for any GitHub API operation** — always read current
+     state from the GitHub API
 
-## Commit Conventions
+  ### Post-Push Reporting
+
+  After every push:
+  1. Comment on the relevant Issue with the commit SHA
+  2. Confirm the commit message and files changed
+  3. Only close the issue after the push is confirmed on GitHub
+
+  ### Issue Comment Attribution
+
+  Both agents post to GitHub Issues as `ioTus` (same PAT). To
+  distinguish authorship:
+
+  - **Replit Agent comments** must start with:
+    `**[Replit Agent — Engineer]:**`
+  - **Claude comments** start with:
+    `**[Claude — PM/Strategist]:**`
+
+  This is mandatory for all issue comments. Without attribution,
+  there is no way to tell which agent wrote what.
+
+  ### History
+
+  - Issue #19: First git sync incident — attempted `git pull` via API,
+    made divergence worse. Motivated the original protocol.
+  - Issue #23: Full capabilities audit, root cause identified (no
+    `origin` remote), Git Data API path tested and confirmed. This
+    protocol is the result.
+
+  ## Commit Conventions
 
 | Prefix | Use for |
 |--------|---------|
@@ -228,7 +254,7 @@ Include the plan doc reference when applicable:
 
 ---
 
-*Last updated: 2026-03-18 (renamed from AGENTS-replit.md — Issue #21)*
+*Last updated: 2026-03-19 (Git sync protocol rewrite — Issue #23)*
 
 *This file is maintained by Replit Agent with user approval. Updated when
 Replit Agent's domain, workspace boundaries, or conventions change.
