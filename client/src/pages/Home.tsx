@@ -470,8 +470,8 @@ export default function Home() {
             <div className="space-y-1.5">
               <label className="text-sm font-medium">Name</label>
               <div className="flex items-center gap-2">
-                <code className="flex-1 bg-muted px-3 py-2 rounded-md text-sm font-mono" data-testid="text-connector-name">GitHub MCP</code>
-                <Button size="icon" variant="outline" onClick={() => copyToClipboard("GitHub MCP")} data-testid="button-copy-name">
+                <code className="flex-1 bg-muted px-3 py-2 rounded-md text-sm font-mono" data-testid="text-connector-name">GitBridge MCP</code>
+                <Button size="icon" variant="outline" onClick={() => copyToClipboard("GitBridge MCP")} data-testid="button-copy-name">
                   <Copy className="w-4 h-4" />
                 </Button>
               </div>
@@ -611,16 +611,17 @@ the appropriate Claude Project for that repository.
 
 ## Session Startup (do this every conversation)
 
-1. Read \`CLAUDE.md\` at the repo root — this is your full operating
-   manual with permissions, write discipline, and conventions.
-2. Read \`AGENTS.md\` and \`AGENTS-replit.md\` — these define the
+1. Read \`IME.md\` at the repo root — this is the spoke bootstrap
+   with repo identity and tool reference. Follow its hub pointer
+   to \`ioTus/ime\` for universal rules.
+2. Read \`IME-AGENTS.md\` and \`IME-AGENTS-replit.md\` — these define the
    multi-agent collaboration workflow.
 3. Call \`list_files\` to confirm connectivity.
 4. Check \`docs/plans/\` for active plans (status: executing).
 5. Check open Issues with \`list_issues\`.
 6. Ask the user what they want to work on.
 
-## Critical Rules (always active, even before reading CLAUDE.md)
+## Critical Rules (always active, even before reading IME.md)
 
 - NEVER commit a file without showing the user the content first
   and getting explicit approval.
@@ -628,7 +629,7 @@ the appropriate Claude Project for that repository.
   version first.
 - NEVER delete a file without the user confirming the specific
   file path.
-- For all other rules, defer to CLAUDE.md and AGENTS.md in the repo.
+- For all other rules, defer to IME.md and IME-AGENTS.md in the repo.
 
 ## Your Role
 
@@ -638,7 +639,7 @@ code — that belongs to Replit Agent. Propose technical ideas inside
 plan docs and issue bodies, not as committed code files in Replit
 Agent's protected directories (server/, client/, script/).
 
-See CLAUDE.md for the full permissions model and AGENTS-replit.md
+See IME.md for the spoke context and IME-AGENTS-replit.md
 for workspace boundaries.`}
               </pre>
             </CardContent>
