@@ -1,0 +1,67 @@
+# IME.md — Spoke: gitbridge-mcp
+
+> This repo is a spoke in the IME system.
+> Hub: ioTus/ime — read IME.md there for identity, roles,
+> principles, permissions, write discipline, and workflows.
+
+---
+
+## What This Repo Is
+
+gitbridge-mcp is an MCP bridge server that connects AI assistants
+to GitHub repositories via the Model Context Protocol.
+
+- Repo: ioTus/gitbridge-mcp
+- Live server: https://gitbridge-mcp.replit.app
+- License: MIT, open source
+
+---
+
+## Governance Files
+
+| File | What it is |
+|------|-----------|
+| IME.md | This file — spoke bootstrap |
+| IME-AGENTS.md | Multi-agent overview and index |
+| IME-AGENTS-replit.md | Replit Agent workspace boundaries |
+| docs/plans/ | Plan documents |
+| docs/decisions/ | Decision log |
+
+---
+
+## Available Tools
+
+*Updated by Replit Agent with each build.*
+
+<!-- TOOLS:START -->
+### Live (V2):
+
+| Tool | Category | What it does |
+|------|----------|-------------|
+| `read_file` | File Tools | Read the contents of a file from a GitHub repository |
+| `write_file` | File Tools | Create or update a single file in a GitHub repository |
+| `push_multiple_files` | File Tools | Create or update multiple files in a single commit using the Git Data API |
+| `list_files` | File Tools | List files and folders at a path in a GitHub repository |
+| `create_issue` | Issue Tools | Create a new GitHub Issue in a repository |
+| `update_issue` | Issue Tools | Update an existing GitHub Issue (change status, labels, title, or body) |
+| `list_issues` | Issue Tools | List GitHub Issues in a repository with optional filters |
+| `add_issue_comment` | Issue Tools | Add a comment to an existing GitHub Issue |
+| `read_issue` | Issue Tools | Read the full body and comments of a GitHub Issue |
+| `search_files` | Search & History | Search file contents across a GitHub repository using GitHub Code Search |
+| `move_file` | Advanced File Operations | Move or rename a file. Reads from old path, writes to new path, then returns a GitHub link for the user to manually delete the original. |
+| `delete_file` | Advanced File Operations | Delete a file from a GitHub repository. This is a destructive operation — the file will be permanently removed from the specified branch. |
+| `queue_write` | Advanced File Operations | Queue a file write for batch commit. Writes are held in server memory and flushed together when flush_queue is called. Queue resets if the server restarts. |
+| `flush_queue` | Advanced File Operations | Commit all queued writes for a repository in a single GitHub commit. Call queue_write first to add files to the queue. |
+| `get_recent_commits` | Search & History | Return recent commit history for a branch in a GitHub repository |
+| `create_repo` | Repo Management | Create a new GitHub repository on a personal account or within an organization |
+| `create_branch` | Branch Tools | Create a new branch from an existing one |
+| `list_branches` | Branch Tools | List all branches in a GitHub repository |
+| `get_file_diff` | Search & History | Show file changes between a commit SHA and a branch head (default: main) |
+| `get_project_board` | Project Management | Read a GitHub Projects V2 board — returns columns (status values) and the issues/PRs in each column |
+| `move_issue_to_column` | Project Management | Move an issue to a target column (status) on a GitHub Projects V2 board |
+
+All tools require `owner` and `repo` parameters except `create_repo`
+(which takes `name` and optional `org`). Write tools prefix responses
+with `✅ Writing to: {owner}/{repo}`. Project tools require the PAT
+to have the `project` scope for GitHub Projects V2 access.
+<!-- TOOLS:END -->
