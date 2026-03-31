@@ -85,13 +85,23 @@ MCP (Model Context Protocol) bridge server that connects Claude Chat (claude.ai)
 - Replit Agent has GitHub API access via the Replit GitHub integration (authenticated as `ioTus`)
 - Issue comment attribution: `**[Replit Agent — Engineer]:**` or `**[Claude — PM/Strategist]:**` prefix (both agents post as `ioTus`)
 
-## Git Sync Protocol (Issue #23)
+## Git Sync Protocol (Issue #23, automated in Issue #27)
 - Local git has NO `origin` remote — `git push` cannot reach GitHub
 - All pushes to GitHub use the **Git Data API** (atomic multi-file commits)
 - Push sequence: GET refs/heads/main → GET commit → POST trees → POST commits → PATCH refs/heads/main
 - Local git state (HEAD, commit history) is unreliable — always read current state from GitHub API
 - Never reference local SHAs for GitHub operations; never `git push`; never `git pull`
 - Full protocol documented in `IME-AGENTS-replit.md` § "Sync to GitHub"
+
+## Automated GitHub Sync (Issue #27)
+- **After every unit of work**, run `npx tsx scripts/github-sync.ts "[commit message]"` to push all changes to GitHub
+- The sync utility uses the Git Data API — it reads GitHub's current HEAD, builds a new commit on top, and verifies the push
+- Detects both tracked changes (`git diff`) and new untracked files (`git ls-files --others`)
+- Flags upstream warnings if Claude modified the same files since the last known state (last-writer-wins, but warns)
+- Authenticates via the Replit GitHub integration (connectors SDK), falling back to `GITHUB_PERSONAL_ACCESS_TOKEN` if unavailable
+- Config lives in `ime.config.json` (owner, repo, branch)
+- **Never use `git push`, `git pull`, `git fetch`, or the Git panel for syncing** — only for initial repo connection
+- The sync utility can also be imported: `import { syncToGitHub, commentOnIssue } from "./scripts/github-sync.ts"`
 
 ## Public Repository
 - Source published at github.com/ioTus/gitbridge-mcp
